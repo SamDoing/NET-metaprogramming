@@ -22,13 +22,13 @@ namespace NetMetaprograming.Data
                 new()
                 {
                     Id = Guid.NewGuid(),
-                    Nome = "Item1",
+                    Name = "Item1",
                     Description = "Item1 description"
                 },
                 new()
                 {
                     Id = Guid.NewGuid(),
-                    Nome = "Item2",
+                    Name = "Item2",
                     Description = "Item2 description"
                 }
             );

@@ -9,6 +9,6 @@ using(var db = new AppDbContext())
     var repoBuilder = new GenericRepoBuilder<IGenericRepository<Product>>();
     var productRepository = repoBuilder.Build(db);
     
-    var products = productRepository.SelectAll();
-    products.ForEach(p => Console.WriteLine($"{p.Nome} is a product"));
+    var products = await productRepository.SelectAll();
+    products.ForEach(p => Console.WriteLine($"{p.Name} is a product"));
 }

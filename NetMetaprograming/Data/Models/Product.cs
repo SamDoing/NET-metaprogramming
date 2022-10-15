@@ -12,7 +12,7 @@ namespace NetMetaprograming.Data.Models
         public Guid Id { get; set; }
 
         [MaxLength(100)]
-        public string Nome { get; set; }
+        public string Name { get; set; }
 
         [MaxLength(300)]
         public string Description { get; set; }
