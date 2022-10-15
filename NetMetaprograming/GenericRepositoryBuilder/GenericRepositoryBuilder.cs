@@ -13,7 +13,7 @@ namespace NetMetaprograming.GenericRepositoryBuilder
     public class GenericRepoBuilder<T>
     {
         private readonly TypeBuilder typeBuilder;
-
+        private static readonly Type genericType = typeof(T).GetGenericArguments().Single();
         public GenericRepoBuilder()
         {
             AssemblyName aName = new AssemblyName("DynamicAssembly");
@@ -59,7 +59,7 @@ namespace NetMetaprograming.GenericRepositoryBuilder
 
 
                 var dbSetType = dbContext.GetType().GetProperties()
-                        .Where(p => p.PropertyType.GenericTypeArguments.First() == typeof(T).GenericTypeArguments.First())
+                        .Where(p => p.PropertyType.GenericTypeArguments.First() == genericType)
                         .First()
                         .GetGetMethod();
 
@@ -74,7 +74,7 @@ namespace NetMetaprograming.GenericRepositoryBuilder
                     {
                         iLGenerator.Emit(OpCodes.Ldarg_1);
 
-                        var queryFilter = methInterface.Name.Substring("Select".Length);
+                        var queryFilter = methInterface.Name["Select".Length..];
 
                         iLGenerator.Emit(OpCodes.Ldstr, queryFilter);
                         iLGenerator.Emit(OpCodes.Call, GetType().GetMethod(nameof(CollectionQueryLambdaGenerator)));
@@ -92,25 +92,18 @@ namespace NetMetaprograming.GenericRepositoryBuilder
         public static Task CollectionQueryLambdaGenerator(object lambda, object dbSet, string filterName)
         {
             var lambName = nameof(Queryable.Where);
-            var lambGenType = lambda.GetType().GenericTypeArguments.First();
             var lambMeth = typeof(Queryable).GetMethods().Where(m => m.Name == filterName).First();
 
-            var query = (IQueryable) lambMeth.MakeGenericMethod(lambGenType).Invoke(null, new object[] { lambda, dbSet });
+            var query = (IQueryable) lambMeth.MakeGenericMethod(genericType).Invoke(null, new object[] { lambda, dbSet });
             return ToListAsync(query);
         }
 
         public static Task ToListAsync(object query)
         {
             var methName = nameof(EntityFrameworkQueryableExtensions.ToListAsync);
-            var genType = query.GetType().GenericTypeArguments.First();
-            var meth = typeof(EntityFrameworkQueryableExtensions).GetMethod(methName).MakeGenericMethod(genType);
+            var meth = typeof(EntityFrameworkQueryableExtensions).GetMethod(methName).MakeGenericMethod(genericType);
 
             return (Task)meth.Invoke(null, new object[] { query, null });
-        }
-
-        public static void test2(Task<List<Product>> t)
-        {
-            Console.WriteLine(t.GetAwaiter().GetResult());
         }
 
         private void GenerateConstructor(FieldBuilder fbDbContext)
@@ -122,15 +115,6 @@ namespace NetMetaprograming.GenericRepositoryBuilder
 
             iLGenerator.Emit(OpCodes.Ldarg_0);
             iLGenerator.Emit(OpCodes.Call, typeof(object).GetConstructor(Type.EmptyTypes));
-
-    //       iLGenerator.Emit(OpCodes.Ldarg_1);
-   //        iLGenerator.Emit(OpCodes.Call, GetType().GetMethod(nameof(test)));
-
-  //         iLGenerator.Emit(OpCodes.Call, GetType().GetMethod(nameof(test2)));
-
-            //var t = MethodInfoHelper.Of((string s) => Console.WriteLine(s));
-            //iLGenerator.Emit(OpCodes.Call, t);
-
 
             iLGenerator.Emit(OpCodes.Ldarg_0);
             iLGenerator.Emit(OpCodes.Ldarg_1);

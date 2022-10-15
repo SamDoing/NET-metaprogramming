@@ -6,7 +6,7 @@ using(var db = new AppDbContext())
 {
     db.Database.EnsureCreated();
 
-    var repoBuilder = new GenericRepoBuilder<IGenericRepository<Product>>();
+    var repoBuilder = new GenericRepoBuilder<IGenericRepository<Product>, Product>();
     var productRepository = repoBuilder.Build(db);
     
     var products = await productRepository.SelectAll();
