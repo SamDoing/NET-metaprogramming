@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 
 namespace NetMetaprograming.GenericRepositoryBuilder
 {
@@ -9,5 +8,9 @@ namespace NetMetaprograming.GenericRepositoryBuilder
         public Task<List<T>> SelectAllAsync();
         public Task<List<T>> SelectNAsync(int n);
         public Task<T?> SelectFirstAsync(Expression<Func<T, bool>> filter);
+        public T Add(T entity);
+        public void Update(T entity);
+        public void Remove(T entity);
+        public Task SaveChangesAsync();
     }
 }

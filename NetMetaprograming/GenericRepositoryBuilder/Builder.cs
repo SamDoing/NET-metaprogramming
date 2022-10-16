@@ -1,27 +1,22 @@
-﻿using System.Reflection.Emit;
+﻿using Microsoft.EntityFrameworkCore;
 using System.Reflection;
-using System.Linq.Expressions;
-using Microsoft.EntityFrameworkCore;
-using NetMetaprograming.Data;
-using Microsoft.EntityFrameworkCore.Internal;
-using NetMetaprograming.GenericRepositoryBuilder.Utils;
-using System.Collections;
-using NetMetaprograming.Data.Models;
-using System.Collections.Generic;
+using System.Reflection.Emit;
 
 namespace NetMetaprograming.GenericRepositoryBuilder
 {
-    public partial class Builder<T>
+    public partial class Builder
     {
+        private readonly Type interfaceType;
         private readonly TypeBuilder typeBuilder;
         private readonly Type genericType;
         private readonly List<MethodInfo> interfaceMethods = new();
         private static readonly Dictionary<string, Action<ILGenerator>> methodsIL = new();
-        private FieldBuilder? fbDbContext;
+        private FieldBuilder fbDbContext;
 
 
-        public Builder()
+        public Builder(Type interfaceType)
         {
+            this.interfaceType = interfaceType;
             genericType = ValidateInterface();
             InitializeMethodsIL();
             typeBuilder = CreateType();
@@ -36,15 +31,13 @@ namespace NetMetaprograming.GenericRepositoryBuilder
             // The module name is usually the same as the assembly name.
             ModuleBuilder mb = ab.DefineDynamicModule(aName.Name);
 
-            return mb.DefineType($"{typeof(T).Name}DynamicType", TypeAttributes.Public);
+            return mb.DefineType($"{interfaceType.Name}DynamicType", TypeAttributes.Public);
         }
 
-        private static Type ValidateInterface()
+        private Type ValidateInterface()
         {
-            var typeOfT = typeof(T);
-
-            var genericInterface = typeOfT.GetInterface(typeof(IGenericRepository<>).Name);
-            if (!typeOfT.IsInterface || genericInterface == null)
+            var genericInterface = interfaceType.GetInterface(typeof(IGenericRepository<>).Name);
+            if (!interfaceType.IsInterface || genericInterface == null)
             {
                 throw new Exception($"Type needs to be interface and generic");
             }
@@ -52,27 +45,25 @@ namespace NetMetaprograming.GenericRepositoryBuilder
         }
 
         private void AddAndCheckMethodsImplementation()
-        {
-            var typeOfT = typeof(T);
-            
-            interfaceMethods.AddRange(typeOfT.GetInterfaces().SelectMany(i => i.GetMethods()));
-            interfaceMethods.AddRange(typeOfT.GetMethods());
+        {   
+            interfaceMethods.AddRange(interfaceType.GetInterfaces().SelectMany(i => i.GetMethods()));
+            interfaceMethods.AddRange(interfaceType.GetMethods());
 
             var methNotImplemented = interfaceMethods.FirstOrDefault(m => !methodsIL.ContainsKey(m.Name));
             if (methNotImplemented != null)
                 throw new Exception($"{methNotImplemented.Name} not implemented");
         }
 
-        public T Build(DbContext appDbContext)
+        public object Build(DbContext appDbContext)
         {
-            typeBuilder.AddInterfaceImplementation(typeof(T));
-            fbDbContext = typeBuilder.DefineField("DbContext", typeof(DbContext), FieldAttributes.Private);
+            typeBuilder.AddInterfaceImplementation(interfaceType);
+            fbDbContext = typeBuilder.DefineField("dbContext", typeof(DbContext), FieldAttributes.Private);
 
             GenerateConstructor(fbDbContext);
             GenerateMethods(appDbContext);
 
             var tp = typeBuilder.CreateType() ?? throw new Exception();
-            return (T)(Activator.CreateInstance(tp, appDbContext) ?? throw new Exception());
+            return Activator.CreateInstance(tp, appDbContext) ?? throw new Exception();
         }
 
         private void GenerateMethods(DbContext dbContext)
@@ -101,9 +92,11 @@ namespace NetMetaprograming.GenericRepositoryBuilder
             iLGenerator.Emit(OpCodes.Ldfld, fbDbContext);
 
 
-            var dbSetType = GetDbSetGenericGetter(dbContext.GetType());
-
-            iLGenerator.Emit(OpCodes.Callvirt, dbSetType);
+            if(methInterface.Name != "SaveChangesAsync")
+            {
+                var dbSetType = GetDbSetGenericGetter(dbContext.GetType());
+                iLGenerator.Emit(OpCodes.Callvirt, dbSetType);
+            }
 
             methodsIL[methInterface.Name].Invoke(iLGenerator);
 
